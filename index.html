@@ -1,0 +1,113 @@
+<html>
+<head>
+    <title>DNSBin - The request.bin of DNS !</title>
+
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" type="text/css" />
+
+    <script src="config.js"></script>
+    <script type="text/javascript">
+        window.onload = function() {
+            var socketConnection = new WebSocket(websocketUrl);
+            var restoreInProgress = false;
+            var tempToken;
+
+            function showInformation(dt) {
+                document.getElementById("token").innerHTML = 
+                    "Subdomain to use : *." + dt.data + prefixes["standard"] + targetDomain + " <br /><br />" + 
+                    "Example : <br />mydatahere." + dt.data + prefixes["standard"] + targetDomain;
+                document.getElementById("token").className = "alert alert-success";
+                window.location = "#master=" + dt.master;
+            }
+
+            function addReceivedMessage(dt) {
+                var inVal = document.createElement("div");
+                inVal.innerText = dt.data;
+                inVal.className = "list-group-item";
+                document.getElementById("requests").appendChild(inVal);
+            }
+
+            function getMasterFromLocation() {
+                var data = unescape(window.location.hash.substr(1));
+                var parts = data.split("=");
+
+                if (parts[0] == "master") {
+                    return parts[1];               
+                }
+            }
+
+            socketConnection.onmessage = function (data) {
+                var dt = JSON.parse(data.data);
+                
+                if (dt.type == "token") {
+                    if (!restoreInProgress) {
+                        showInformation(dt);
+                    } else {
+                        tempToken = dt;
+                    }
+                }
+
+                if (dt.type == "restore") {
+                    restoreInProgress = false;
+
+                    if (dt.err) {
+                        if (tempToken) {
+                            showInformation(tempToken);
+                        }
+                    } else {
+                        showInformation({ 
+                            "data"   : dt["subdomain"], 
+                            "master" : getMasterFromLocation()
+                        });
+
+                        for (var i=0; i<dt.data.length; i++) {
+                            addReceivedMessage(dt.data[i]);
+                        }
+                    }
+                }
+
+                if (dt.type == "request") {
+                    addReceivedMessage(dt);
+                }
+            };
+
+            socketConnection.onclose = function () {
+                var inVal = document.createElement("div");
+                inVal.innerText = "WebSocket connection closed. Refresh the page to restart.";
+                inVal.className = "list-group-item alert alert-danger";
+                document.getElementById("requests").appendChild(inVal);
+            };
+
+            socketConnection.onopen = function () {
+                // If we have a master token, this means the page was refreshed.
+                // We will try to get the data from that session.
+                var master = getMasterFromLocation();
+
+                if (master) {
+                    restoreInProgress = true;
+                    socketConnection.send(JSON.stringify({
+                        "restore" : true, 
+                        "master" : master
+                    }));
+
+                    document.getElementById("token").innerHTML = "Attempting to restore from master token ...";
+                    document.getElementById("token").className = "alert alert-warning";
+                }
+            };
+
+        }
+    </script>
+</head>
+<body>
+
+<div class="container">
+    <h1>DNSBin</h1>
+
+    <div id="token" class="alert alert-warning">Getting subdomain. Please wait ...</div>
+
+    <h2>Received data</h2>
+    <div id="requests" class="list-group"></div>
+
+</div>
+
+</body>
+</html>
