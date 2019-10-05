@@ -2,7 +2,7 @@
 var targetDomain     = "0x1.live";
 
 // Websocket URI that the client will use to connect
-var websocketUrl     = "wss://dns1.0x1.live:8001/dnsbin";
+var websocketUrl     = "ws://dns1.0x1.live:8001/dnsbin";
 
 // Subdomain used for the service.
 var prefixes         = { 
